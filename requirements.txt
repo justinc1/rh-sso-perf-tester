@@ -1,2 +1,3 @@
-kcapi
+# kcapi>=1.0.23
+git+https://github.com/justinc1/keycloak-api@search-users#egg=kcapi
 pytictoc
