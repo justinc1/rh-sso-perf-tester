@@ -19,3 +19,22 @@ Reuse requests connection
 - ~50% CPU usage with INFO log level
 Problems:
 - a few 10 "Connection pool is full, discarding connection" messages
+Check connection reuse with tcpdump
+- cmd for 1 and 10 users:
+  - ./hello.py https://jc-sso-justin-cinkelj-dev.apps.sandbox.x8i5.p1.openshiftapps.com admin adminp 1
+  - sudo tcpdump -nni enp4s0 host 54.80.119.165 or host 34.194.179.209 -w aa1.pcap
+- with "cleanup_users()" enabled:
+  - 1 user test - 9 TCP streams
+  - 10 users test - 27 TCP streams
+- with "cleanup_users()" commented out:
+  - 1 user test - 3 TCP streams
+  - 10 users test - 12 TCP streams
+  - 1000 users test - 35 TCP streams
+  - connections are reused, but pool is a bit small
+
+Reuse requests connection v2
+- commit d119273f48eff4d02fd9ca468616eb6b322af41e, keycloak-api@38d662daabc2e7595abace2d59d574f80fcf4922
+Check connection reuse with tcpdump
+- with "cleanup_users()" commented out:
+  - 1000 users test - 29 TCP streams
+  - 10k users test - 86 TCP streams
