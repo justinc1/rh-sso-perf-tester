@@ -5,6 +5,7 @@ import sys
 import kcapi
 from pytictoc import TicToc
 import asyncio
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 log_level = logging.DEBUG
 log_level = logging.INFO
@@ -15,9 +16,9 @@ realm = "master"
 firstName = "remove-me"
 
 
-def user_generator(id0, ii):
-    lastName = f"remove-me-{id0}"
-    username = f"user-{id0}-{ii:06}"
+def user_generator(id0, id1):
+    lastName = f"remove-me-{id0:02}"
+    username = f"user-{id0:02}-{id1:06}"
     data = {
         "username": username,
         "firstName": firstName,
@@ -93,7 +94,7 @@ def cleanup_users():
     logger.info(f"User count after cleanup: {users.count()}")
 
 
-async def create_users(nn):
+async def create_users(id0, id1_max):
     timer = TicToc()
     kc =  get_kc()
     users = kc.build("users", realm)
@@ -101,9 +102,8 @@ async def create_users(nn):
     timer.tic()
     tasks = []
     loop = asyncio.get_event_loop()
-    id0 = "00"
-    for ii in range(nn):
-        data = user_generator(id0, ii)
+    for id1 in range(id1_max):
+        data = user_generator(id0, id1)
         tasks.append(loop.run_in_executor(None, users.create, data))
         # logger.info(f"User is_ok: {uu.isOk()}")
     # user_uuids = []
@@ -115,15 +115,38 @@ async def create_users(nn):
         #     user_uuids.append(uu.response.json()["id"])
     timer.toc()
     logger.info(f"User count after create: {users.count()}")
+    return f"TTRT {id0:02} {id1_max} - users.count()={users.count()}"
+
+
+def create_users_group(id0, id1_max):
+    loop = asyncio.get_event_loop()
+    result = loop.run_until_complete(create_users(id0, id1_max))
+    return result
 
 def main():
     # test_ro()
 
-    nn = int(sys.argv[4])
-    loop = asyncio.get_event_loop()
-    cleanup_users()
-    loop.run_until_complete(create_users(nn))
-    cleanup_users()
+    id0_max = int(sys.argv[4])
+    id1_max = int(sys.argv[5])
+
+    with ProcessPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(cleanup_users)
+        as_completed(future)
+
+    future_to_id0 = dict()
+    with ProcessPoolExecutor(max_workers=id0_max) as executor:
+        for id0 in range(id0_max):
+            future = executor.submit(create_users_group, id0, id1_max)
+            future_to_id0[future] = id0
+
+        for future in as_completed(future_to_id0):
+            id0 = future_to_id0[future]
+            worker_result = future.result()
+            print(f"id0={id0:02} worker_result={worker_result}")
+
+    with ProcessPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(cleanup_users)
+        as_completed(future)
 
 
 if __name__ == "__main__":
