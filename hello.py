@@ -15,6 +15,17 @@ realm = "master"
 firstName = "remove-me"
 
 
+def user_generator(id0, ii):
+    lastName = f"remove-me-{id0}"
+    username = f"user-{id0}-{ii:06}"
+    data = {
+        "username": username,
+        "firstName": firstName,
+        "lastName": lastName,
+    }
+    return data
+
+
 def get_kc():
     api_url = sys.argv[1]
     username = sys.argv[2]
@@ -90,10 +101,10 @@ async def create_users(nn):
     timer.tic()
     tasks = []
     loop = asyncio.get_event_loop()
+    id0 = "00"
     for ii in range(nn):
-        username = f"user{ii:06}"
-        logger.debug(f"username: {username}")
-        tasks.append(loop.run_in_executor(None, users.create, {"username": username, "firstName": firstName}))
+        data = user_generator(id0, ii)
+        tasks.append(loop.run_in_executor(None, users.create, data))
         # logger.info(f"User is_ok: {uu.isOk()}")
     # user_uuids = []
     for tt in tasks:
