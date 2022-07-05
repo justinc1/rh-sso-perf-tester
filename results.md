@@ -38,3 +38,15 @@ Check connection reuse with tcpdump
 - with "cleanup_users()" commented out:
   - 1000 users test - 29 TCP streams
   - 10k users test - 86 TCP streams
+
+Execute with asyncio, in multiple processes:
+- commit 83d438c10db09613848fa0d21271f83ba57b052c, keycloak-api@38d662daabc2e7595abace2d59d574f80fcf4922
+- cmd /hello.py https://jc-sso-justin-cinkelj-dev.apps.sandbox.x8i5.p1.openshiftapps.com admin adminp 4 2500
+  - 4*2500 == 10k users are created, in 15.884430 to 16.010203 (we have report from 4 processes)
+  - CPU usage at ~4*(30..40)%
+- cmd ./hello.py https://jc-sso-justin-cinkelj-dev.apps.sandbox.x8i5.p1.openshiftapps.com admin adminp 20 5000
+  - CPU usage ~20*(10..25)% - server is bottleneck
+  - then server crashed - HTTP response 'Server Error: 503', and web UI unavailable for short time.
+  - same with 10 processes
+
+.
