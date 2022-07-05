@@ -12,6 +12,7 @@ logging.basicConfig(level=log_level)
 logger = logging.getLogger(__name__)
 
 realm = "master"
+firstName = "remove-me"
 
 
 def get_kc():
@@ -43,18 +44,23 @@ def test_ro():
 
 
 async def cleanup_users_async(users, nn):
-    tasks1 = []
     loop = asyncio.get_event_loop()
-    logger.info(f"Removing users with username user[000000..{nn:06}]")
-    for ii in range(nn):
-        username = f"user{ii:06}"
-        tasks1.append(loop.run_in_executor(None, users.search, {"username": username}))
+    logger.info(f"Removing users with firstName={firstName}]")
     user_ids = []
-    for tt1 in tasks1:
-        uu_list = await tt1
-        logger.debug(f"Removing user {uu_list}")
+    first = 0
+    page_size = 1000
+    while True:
+        uu_list = users.search({
+            "firstName": firstName,
+            "first": first,
+            "max": page_size,
+        })
+        logger.info(f"Removing users count={len(uu_list)} first={first} page_size={page_size}")
         if uu_list:
-            user_ids.append(uu_list[0]["id"])
+            user_ids.extend([uu["id"] for uu in uu_list])
+            first += page_size
+        else:
+            break
 
     tasks2 = []
     for user_id in user_ids:
@@ -87,7 +93,7 @@ async def create_users(nn):
     for ii in range(nn):
         username = f"user{ii:06}"
         logger.debug(f"username: {username}")
-        tasks.append(loop.run_in_executor(None, users.create, {"username":username}))
+        tasks.append(loop.run_in_executor(None, users.create, {"username": username, "firstName": firstName}))
         # logger.info(f"User is_ok: {uu.isOk()}")
     # user_uuids = []
     for tt in tasks:
