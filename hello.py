@@ -54,7 +54,7 @@ def test_ro():
     logger.info(f"User 2:: {uu2}")
 
 
-async def cleanup_users_async(users, nn):
+async def cleanup_users_async(users):
     loop = asyncio.get_event_loop()
     logger.info(f"Removing users with firstName={firstName}]")
     user_ids = []
@@ -81,14 +81,14 @@ async def cleanup_users_async(users, nn):
         await tt2
 
 
-def cleanup_users(nn):
+def cleanup_users():
     loop = asyncio.get_event_loop()
     timer = TicToc()
     kc =  get_kc()
     users = kc.build("users", realm)
     logger.info(f"User count before cleanup: {users.count()}")
     timer.tic()
-    loop.run_until_complete(cleanup_users_async(users, nn))
+    loop.run_until_complete(cleanup_users_async(users))
     timer.toc()
     logger.info(f"User count after cleanup: {users.count()}")
 
@@ -121,9 +121,9 @@ def main():
 
     nn = int(sys.argv[4])
     loop = asyncio.get_event_loop()
-    cleanup_users(nn)
+    cleanup_users()
     loop.run_until_complete(create_users(nn))
-    cleanup_users(nn)
+    cleanup_users()
 
 
 if __name__ == "__main__":
