@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import argparse
 import logging
 import sys
 import kcapi
@@ -26,11 +27,24 @@ def user_generator(id0, id1):
     }
     return data
 
+def parse_args():
+
+    parser = argparse.ArgumentParser(description='Retrieve args')
+    parser.add_argument('--url', required=True)
+    parser.add_argument('--username', required=True)
+    parser.add_argument('--password', required=True)
+    parser.add_argument('--workers', type=int, required=True)
+    parser.add_argument('--requests', type=int, required=True)
+    args = parser.parse_args()
+
+    return args
+
 
 def get_kc():
-    api_url = sys.argv[1]
-    username = sys.argv[2]
-    password = sys.argv[3]
+    args = parse_args()
+    api_url = args.url
+    username = args.username
+    password = args.password
 
     oid_client = kcapi.OpenID({
         "client_id": "admin-cli",
@@ -124,10 +138,12 @@ def create_users_group(id0, id1_max):
     return result
 
 def main():
-    # test_ro()
 
-    id0_max = int(sys.argv[4])
-    id1_max = int(sys.argv[5])
+    args = parse_args()
+    # id0_max = int(sys.argv[4])
+    # id1_max = int(sys.argv[5])
+    id0_max = int(args.workers)
+    id1_max = int(args.requests)
 
     with ProcessPoolExecutor(max_workers=1) as executor:
         future = executor.submit(cleanup_users)
