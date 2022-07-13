@@ -69,7 +69,7 @@ def create_user():
     old_users = users.search({"username": username})
     if old_users:
         print(f'FYI removing old user with username={username}')
-        users.delete(old_users[0])
+        users.remove(old_users[0]['id'])
     user = users.create(testuser)
     return user
 
