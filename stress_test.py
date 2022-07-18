@@ -2,7 +2,7 @@
 
 import argparse
 import logging
-import sys
+import time
 import kcapi
 from pytictoc import TicToc
 import asyncio
@@ -116,9 +116,13 @@ async def create_users(id0, id1_max):
     timer.tic()
     tasks = []
     loop = asyncio.get_event_loop()
+    debug_delay = 0.0  # 5.0
     for id1 in range(id1_max):
         data = user_generator(id0, id1)
         tasks.append(loop.run_in_executor(None, users.create, data))
+        if debug_delay:
+            logger.info(f"Creating user: username={data['username']}")
+            time.sleep(debug_delay)
         # logger.info(f"User is_ok: {uu.isOk()}")
     # user_uuids = []
     for tt in tasks:
@@ -137,11 +141,9 @@ def create_users_group(id0, id1_max):
     result = loop.run_until_complete(create_users(id0, id1_max))
     return result
 
-def main():
 
+def main():
     args = parse_args()
-    # id0_max = int(sys.argv[4])
-    # id1_max = int(sys.argv[5])
     id0_max = int(args.workers)
     id1_max = int(args.requests)
 
