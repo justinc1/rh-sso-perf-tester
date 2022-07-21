@@ -1,0 +1,61 @@
+# Objects have:
+# Scenario, contains multiple stages
+# Stage, contains multiple tasks
+# Task, contains multiple commands
+
+scenarioA:
+  type: scenario
+  stages:
+    - prepare
+    - run
+    - collect
+# Stages are run sequentially
+# More than one scenario in file, or reuse stages/tasks by include-ing extra yaml files.
+
+vars:
+  # include-file: filename
+  # WORKER_COUNT: 4
+
+prepare:
+  type: stage
+  tasks:
+    - db_start_all
+    - prepare_sso_app
+# Tasks from one stage run in parallel.
+# Stage is finished when
+#   - all tasks finish
+#   - specific task finishes
+#   - time limit is reached
+
+run:
+  type: stage
+  tasks:
+    - sso_user_login
+    - sso_stress_load  # todo initial delay
+
+prepare_sso_app:
+  type: task
+  commands:
+    - tasks/add_testuser.py
+# Tasks are stupid - fire and forget.
+# They need parameters (environ and/or argv).
+# Runner will collect logs and stdout/stderr.
+# Tasks can be force stopped (early termination).
+# Commands in task are run sequentially.
+
+sso_user_login:
+  type: task
+  commands:
+    - tasks/login_testuser.py
+
+sso_stress_load:
+  type: task
+  commands:
+    - tasks/stress_test.py --workers $WORKER_COUNT  --max-time
+
+
+# names
+# normal_load_test
+# stress_test
+# resiliency_test
+#    - delay 10/20/30 sec, per VM, to turn off DB.
