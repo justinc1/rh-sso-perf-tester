@@ -9,7 +9,7 @@ import asyncio
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 log_level = logging.DEBUG
-log_level = logging.INFO
+#log_level = logging.INFO
 logging.basicConfig(level=log_level)
 logger = logging.getLogger(__name__)
 
@@ -27,16 +27,22 @@ def user_generator(id0, id1):
     }
     return data
 
+
 def parse_args():
-
-    parser = argparse.ArgumentParser(description='Retrieve args')
-    parser.add_argument('--url', required=True)
-    parser.add_argument('--username', required=True)
-    parser.add_argument('--password', required=True)
-    parser.add_argument('--workers', type=int, required=True)
-    parser.add_argument('--requests', type=int, required=True)
+    parser = argparse.ArgumentParser(description='Stress load for RedHat SSO')
+    parser.add_argument('--url', required=True,
+                        help="API URL")
+    parser.add_argument('--username', required=True,
+                        help="Admin user username. Administrator rights are required.")
+    parser.add_argument('--password', required=True,
+                        help="Admin user password")
+    parser.add_argument('--workers', type=int, required=True,
+                        help="How many worker processes to start")
+    parser.add_argument('--requests', type=int, required=True,
+                        help="How many requests should each worker generate")
+    parser.add_argument('--period', type=float, default=0.0,
+                        help="Optionally delay to wait between requests")
     args = parser.parse_args()
-
     return args
 
 
@@ -60,7 +66,7 @@ def get_kc():
 
 
 def test_ro():
-    kc =  get_kc()
+    kc = get_kc()
     users = kc.build("users", realm)
     logger.info(f"User count: {users.count()}")
     uu1 = users.findFirst({"key":"username", "value": "user000001"})
@@ -108,21 +114,20 @@ def cleanup_users():
     logger.info(f"User count after cleanup: {users.count()}")
 
 
-async def create_users(id0, id1_max):
+async def create_users(id0, id1_max, period):
     timer = TicToc()
-    kc =  get_kc()
+    kc = get_kc()
     users = kc.build("users", realm)
     logger.info(f"User count before create: {users.count()}")
     timer.tic()
     tasks = []
     loop = asyncio.get_event_loop()
-    debug_delay = 0.0  # 5.0
     for id1 in range(id1_max):
         data = user_generator(id0, id1)
         tasks.append(loop.run_in_executor(None, users.create, data))
-        if debug_delay:
-            logger.info(f"Creating user: username={data['username']}")
-            time.sleep(debug_delay)
+        if period:
+            logger.debug(f"Creating user: username={data['username']}")
+            time.sleep(period)
         # logger.info(f"User is_ok: {uu.isOk()}")
     # user_uuids = []
     for tt in tasks:
@@ -136,9 +141,9 @@ async def create_users(id0, id1_max):
     return f"TTRT {id0:02} {id1_max} - users.count()={users.count()}"
 
 
-def create_users_group(id0, id1_max):
+def create_users_group(id0, id1_max, period):
     loop = asyncio.get_event_loop()
-    result = loop.run_until_complete(create_users(id0, id1_max))
+    result = loop.run_until_complete(create_users(id0, id1_max, period))
     return result
 
 
@@ -154,7 +159,7 @@ def main():
     future_to_id0 = dict()
     with ProcessPoolExecutor(max_workers=id0_max) as executor:
         for id0 in range(id0_max):
-            future = executor.submit(create_users_group, id0, id1_max)
+            future = executor.submit(create_users_group, id0, id1_max, args.period)
             future_to_id0[future] = id0
 
         for future in as_completed(future_to_id0):
