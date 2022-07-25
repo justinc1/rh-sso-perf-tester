@@ -7,6 +7,7 @@ import kcapi
 from pytictoc import TicToc
 import asyncio
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from help_methods import create_admin_user, create_group, assign_admin_roles_to_group
 
 log_level = logging.DEBUG
 #log_level = logging.INFO
@@ -15,15 +16,19 @@ logger = logging.getLogger(__name__)
 
 realm = "master"
 firstName = "remove-me"
+group_name = "test-admins"
 
 
 def user_generator(id0, id1):
     lastName = f"remove-me-{id0:02}"
     username = f"user-{id0:02}-{id1:06}"
     data = {
+        "enabled": 'true',
+        "attributes": {},
         "username": username,
         "firstName": firstName,
         "lastName": lastName,
+        "emailVerified": "",
     }
     return data
 
@@ -57,7 +62,7 @@ def get_kc():
         "username": username,
         "password": password,
         "grant_type": "password",
-        "realm" : realm
+        "realm": realm
     }, api_url)
     token = oid_client.getToken()
     # 'expires_in': 60,
@@ -105,7 +110,7 @@ async def cleanup_users_async(users):
 def cleanup_users():
     loop = asyncio.get_event_loop()
     timer = TicToc()
-    kc =  get_kc()
+    kc = get_kc()
     users = kc.build("users", realm)
     logger.info(f"User count before cleanup: {users.count()}")
     timer.tic()
@@ -117,6 +122,8 @@ def cleanup_users():
 async def create_users(id0, id1_max, period):
     timer = TicToc()
     kc = get_kc()
+    create_group(kc, group_name)
+    assign_admin_roles_to_group(kc, group_name)
     users = kc.build("users", realm)
     logger.info(f"User count before create: {users.count()}")
     timer.tic()
@@ -124,7 +131,8 @@ async def create_users(id0, id1_max, period):
     loop = asyncio.get_event_loop()
     for id1 in range(id1_max):
         data = user_generator(id0, id1)
-        tasks.append(loop.run_in_executor(None, users.create, data))
+        # tasks.append(loop.run_in_executor(None, users.create, data))
+        tasks.append(loop.run_in_executor(None, create_admin_user, kc, data, group_name, data['username']))
         if period:
             logger.debug(f"Creating user: username={data['username']}")
             time.sleep(period)
