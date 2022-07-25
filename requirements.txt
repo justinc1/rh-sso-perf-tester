@@ -1,5 +1,5 @@
 # kcapi>=1.0.23
 git+https://github.com/justinc1/keycloak-api@search-users-2#egg=kcapi
 pytictoc
-paramiko==2.7.2
+paramiko==2.11.0
 six==1.16.0
