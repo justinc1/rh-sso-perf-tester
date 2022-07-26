@@ -7,14 +7,14 @@ import kcapi
 from pytictoc import TicToc
 import asyncio
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from help_methods import create_admin_user, create_group, assign_admin_roles_to_group
+from help_methods import make_users, create_group, assign_admin_roles_to_group
 
-log_level = logging.DEBUG
-#log_level = logging.INFO
+#log_level = logging.DEBUG
+log_level = logging.INFO
 logging.basicConfig(level=log_level)
 logger = logging.getLogger(__name__)
 
-realm = "master"
+realm = "stress-test"
 firstName = "remove-me"
 group_name = "test-admins"
 
@@ -62,7 +62,7 @@ def get_kc():
         "username": username,
         "password": password,
         "grant_type": "password",
-        "realm": realm
+        "realm": "master"
     }, api_url)
     token = oid_client.getToken()
     # 'expires_in': 60,
@@ -73,6 +73,7 @@ def get_kc():
 def test_ro():
     kc = get_kc()
     users = kc.build("users", realm)
+    logger.info('=================================== test ro => realm: '+ realm)
     logger.info(f"User count: {users.count()}")
     uu1 = users.findFirst({"key":"username", "value": "user000001"})
     logger.info(f"User 01:: {uu1}")
@@ -112,6 +113,7 @@ def cleanup_users():
     timer = TicToc()
     kc = get_kc()
     users = kc.build("users", realm)
+    logger.info('=================================== test cleanup => realm: '+ realm)
     logger.info(f"User count before cleanup: {users.count()}")
     timer.tic()
     loop.run_until_complete(cleanup_users_async(users))
@@ -122,8 +124,8 @@ def cleanup_users():
 async def create_users(id0, id1_max, period):
     timer = TicToc()
     kc = get_kc()
-    create_group(kc, group_name)
-    assign_admin_roles_to_group(kc, group_name)
+    #create_group(kc, group_name, realm)
+    #assign_admin_roles_to_group(kc, group_name, realm)
     users = kc.build("users", realm)
     logger.info(f"User count before create: {users.count()}")
     timer.tic()
@@ -132,7 +134,7 @@ async def create_users(id0, id1_max, period):
     for id1 in range(id1_max):
         data = user_generator(id0, id1)
         # tasks.append(loop.run_in_executor(None, users.create, data))
-        tasks.append(loop.run_in_executor(None, create_admin_user, kc, data, group_name, data['username']))
+        tasks.append(loop.run_in_executor(None, make_users, kc, data, group_name, data['username'], realm))
         if period:
             logger.debug(f"Creating user: username={data['username']}")
             time.sleep(period)
