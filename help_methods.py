@@ -23,17 +23,19 @@ def get_kc(api_url, username, password):
 #     return build
 
 
-def create_user(kc, username, data):
-    # users = kc_build('users')
+def create_user(kc, data):
     users = kc.build("users", "master")
-    old_users = users.search({"username": username})
-    if old_users:
-        print(f'FYI removing old user with username={username}')
-        users.remove(old_users[0]['id'])
-
     # Create user without password
     user = users.create(data)
     return user
+
+
+def remove_user(kc, username):
+    users = kc.build("users", "master")
+    old_users = users.search({"username": username})
+    if old_users:
+        print(f'Removing user with username={username}')
+        users.remove(old_users[0]['id'])
 
 
 def assign_password(kc, username, password):
@@ -56,13 +58,17 @@ def assign_password(kc, username, password):
 
 def create_group(kc, group_name):
     groups = kc.build("groups", "master")
-    old_group = groups.findFirst({"key": "name", "value": group_name})
-    if old_group:
-        print(f'FYI removing old group with name={group_name}')
-        groups.remove(old_group['id'])
     # Create group without roles
     group = groups.create({"name": group_name})
     return group
+
+
+def remove_group(kc, group_name):
+    groups = kc.build("groups", "master")
+    old_group = groups.findFirst({"key": "name", "value": group_name})
+    if old_group:
+        print(f'Removing group with name={group_name}')
+        groups.remove(old_group['id'])
 
 
 def assign_admin_roles_to_group(kc, group_name):
@@ -79,8 +85,8 @@ def assign_user_to_group(kc, username, group_name):
     users.joinGroup({"key": "username", "value": username}, {"key": "name", "value": group_name})
 
 
-def create_admin_user(kc, data, group_name, username):
-    user = create_user(kc, username, data)
+def create_admin_user(kc, data, group_name):
+    user = create_user(kc, data)
     assign_password(kc, data["username"], "testuserp")
     assign_user_to_group(kc, data["username"], group_name)
     return user

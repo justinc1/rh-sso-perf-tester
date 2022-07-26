@@ -7,7 +7,7 @@ import kcapi
 from pytictoc import TicToc
 import asyncio
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from help_methods import create_admin_user, create_group, assign_admin_roles_to_group
+from help_methods import create_admin_user, create_group, assign_admin_roles_to_group, get_kc
 
 log_level = logging.DEBUG
 #log_level = logging.INFO
@@ -19,9 +19,17 @@ firstName = "remove-me"
 group_name = "test-admins"
 
 
-def user_generator(id0, id1):
-    lastName = f"remove-me-{id0:02}"
-    username = f"user-{id0:02}-{id1:06}"
+class KcConnectParams:
+    # Params needed to connect to Keycloak API
+    def __init__(self, url, username, password):
+        self.url = url
+        self.username = username
+        self.password = password
+
+
+def user_generator(worker_num, user_num):
+    lastName = f"remove-me-{worker_num:02}"
+    username = f"user-{worker_num:02}-{user_num:06}"
     data = {
         "enabled": 'true',
         "attributes": {},
@@ -34,50 +42,32 @@ def user_generator(id0, id1):
 
 
 def parse_args():
+    def add_workers_period_arg(subcmd):
+        subcmd.add_argument('--workers', type=int, required=True,
+                                 help="How many worker processes to start")
+        subcmd.add_argument('--users', type=int, required=True,
+                                 help="How many users should each worker create")
+        subcmd.add_argument('--period', type=float, default=0.0,
+                              help="Optionally delay to wait between requests")
+
     parser = argparse.ArgumentParser(description='Stress load for RedHat SSO')
-    parser.add_argument('--url', required=True,
-                        help="API URL")
-    parser.add_argument('--username', required=True,
-                        help="Admin user username. Administrator rights are required.")
-    parser.add_argument('--password', required=True,
-                        help="Admin user password")
-    parser.add_argument('--workers', type=int, required=True,
-                        help="How many worker processes to start")
-    parser.add_argument('--requests', type=int, required=True,
-                        help="How many requests should each worker generate")
-    parser.add_argument('--period', type=float, default=0.0,
-                        help="Optionally delay to wait between requests")
+    sso_group = parser.add_argument_group('sso')
+    sso_group.add_argument('--url', required=True,
+                           help="API URL")
+    sso_group.add_argument('--username', required=True,
+                           help="Admin user username. Administrator rights are required.")
+    sso_group.add_argument('--password', required=True,
+                           help="Admin user password")
+
+    subcommands = parser.add_subparsers(help='Subcommands', dest='command')
+    cmd_prepare = subcommands.add_parser('prepare', help='Prepare before test')
+    add_workers_period_arg(cmd_prepare)
+    cmd_cleanup = subcommands.add_parser('cleanup', help='Cleanup after test')
+    cmd_test = subcommands.add_parser('test', help='Run test')
+    add_workers_period_arg(cmd_test)
+
     args = parser.parse_args()
     return args
-
-
-def get_kc():
-    args = parse_args()
-    api_url = args.url
-    username = args.username
-    password = args.password
-
-    oid_client = kcapi.OpenID({
-        "client_id": "admin-cli",
-        "username": username,
-        "password": password,
-        "grant_type": "password",
-        "realm": realm
-    }, api_url)
-    token = oid_client.getToken()
-    # 'expires_in': 60,
-    kc = kcapi.Keycloak(token, api_url)
-    return kc
-
-
-def test_ro():
-    kc = get_kc()
-    users = kc.build("users", realm)
-    logger.info(f"User count: {users.count()}")
-    uu1 = users.findFirst({"key":"username", "value": "user000001"})
-    logger.info(f"User 01:: {uu1}")
-    uu2 = users.search({"firstName": "remove-me"})
-    logger.info(f"User 2:: {uu2}")
 
 
 async def cleanup_users_async(users):
@@ -86,6 +76,8 @@ async def cleanup_users_async(users):
     user_ids = []
     first = 0
     page_size = 1000
+    timer = TicToc()
+    timer.tic()
     while True:
         uu_list = users.search({
             "firstName": firstName,
@@ -98,19 +90,21 @@ async def cleanup_users_async(users):
             first += page_size
         else:
             break
+    timer.toc("Cleanup users part 1 - search for UUIDs duration: ")
 
+    timer.tic()
     tasks2 = []
     for user_id in user_ids:
         logger.debug(f"Removing user id {user_id}")
         tasks2.append(loop.run_in_executor(None, users.remove, user_id))
     for tt2 in tasks2:
         await tt2
+    timer.toc("Cleanup users part 2 - removing users duration: ")
 
 
-def cleanup_users():
+def cleanup_users(kc):
     loop = asyncio.get_event_loop()
     timer = TicToc()
-    kc = get_kc()
     users = kc.build("users", realm)
     logger.info(f"User count before cleanup: {users.count()}")
     timer.tic()
@@ -119,20 +113,17 @@ def cleanup_users():
     logger.info(f"User count after cleanup: {users.count()}")
 
 
-async def create_users(id0, id1_max, period):
+async def create_users(kc, worker_num, users_count, period):
     timer = TicToc()
-    kc = get_kc()
-    create_group(kc, group_name)
-    assign_admin_roles_to_group(kc, group_name)
     users = kc.build("users", realm)
     logger.info(f"User count before create: {users.count()}")
     timer.tic()
     tasks = []
     loop = asyncio.get_event_loop()
-    for id1 in range(id1_max):
-        data = user_generator(id0, id1)
+    for user_num in range(users_count):
+        data = user_generator(worker_num, user_num)
         # tasks.append(loop.run_in_executor(None, users.create, data))
-        tasks.append(loop.run_in_executor(None, create_admin_user, kc, data, group_name, data['username']))
+        tasks.append(loop.run_in_executor(None, create_admin_user, kc, data, group_name))
         if period:
             logger.debug(f"Creating user: username={data['username']}")
             time.sleep(period)
@@ -144,40 +135,63 @@ async def create_users(id0, id1_max, period):
         # FFF response is empty
         # if uu.isOk():
         #     user_uuids.append(uu.response.json()["id"])
-    timer.toc()
+    timer.toc(f"Worker {worker_num:02} created {users_count} users in")
     logger.info(f"User count after create: {users.count()}")
-    return f"TTRT {id0:02} {id1_max} - users.count()={users.count()}"
+    return f"TTRT {worker_num:02} {users_count} - users.count()={users.count()}"
 
 
-def create_users_group(id0, id1_max, period):
+def create_users_group(kcparams, worker_num, users_count, period):
+    kc = get_kc(kcparams.url, kcparams.username, kcparams.password)
     loop = asyncio.get_event_loop()
-    result = loop.run_until_complete(create_users(id0, id1_max, period))
+    result = loop.run_until_complete(create_users(kc, worker_num, users_count, period))
     return result
+
+
+def cmd_prepare(kcparams, workers_count, users_count, period):
+    kc = get_kc(kcparams.url, kcparams.username, kcparams.password)
+    create_group(kc, group_name)
+    assign_admin_roles_to_group(kc, group_name)
+    # Ugly - make sure existing socket is NOT reused by worker processes.
+    # Or, create also group in a worker process.
+    kc = None
+    import kcapi
+    kcapi.rest.crud.KeycloakCRUD._global_default_session = None
+
+    future_to_worker_num = dict()
+    with ProcessPoolExecutor(max_workers=workers_count) as executor:
+        for worker_num in range(workers_count):
+            # each worker process needs its own socket to Keycloak
+            future = executor.submit(create_users_group, kcparams, worker_num, users_count, period)
+            future_to_worker_num[future] = worker_num
+
+        for future in as_completed(future_to_worker_num):
+            worker_num = future_to_worker_num[future]
+            worker_result = future.result()
+            print(f"worker_num={worker_num:02} worker_result={worker_result}")
+
+
+def cmd_test(kcparams, workers_count, users_count, period):
+    pass
+
+
+def cmd_cleanup(kcparams):
+    kc = get_kc(kcparams.url, kcparams.username, kcparams.password)
+    with ProcessPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(cleanup_users, kc)
+        as_completed(future)
 
 
 def main():
     args = parse_args()
-    id0_max = int(args.workers)
-    id1_max = int(args.requests)
-
-    with ProcessPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(cleanup_users)
-        as_completed(future)
-
-    future_to_id0 = dict()
-    with ProcessPoolExecutor(max_workers=id0_max) as executor:
-        for id0 in range(id0_max):
-            future = executor.submit(create_users_group, id0, id1_max, args.period)
-            future_to_id0[future] = id0
-
-        for future in as_completed(future_to_id0):
-            id0 = future_to_id0[future]
-            worker_result = future.result()
-            print(f"id0={id0:02} worker_result={worker_result}")
-
-    with ProcessPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(cleanup_users)
-        as_completed(future)
+    kcparams = KcConnectParams(args.url, args.username, args.password)
+    if args.command == 'prepare':
+        cmd_prepare(kcparams, args.workers, args.users, args.period)  # TODO args.users, not args.requests
+    elif args.command == 'test':
+        cmd_test(kcparams, args.workers, args.users, args.period)
+    elif args.command == 'cleanup':
+        cmd_cleanup(kcparams)
+    else:
+        raise NotImplementedError(f"Subcommand unknown: {args.command}")
 
 
 if __name__ == "__main__":

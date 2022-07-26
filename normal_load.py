@@ -4,7 +4,7 @@ import argparse
 import kcapi
 import time
 import logging
-from help_methods import create_admin_user, create_group, assign_admin_roles_to_group
+from help_methods import create_admin_user, create_group, assign_admin_roles_to_group, remove_group, remove_user, get_kc
 
 log_level = logging.DEBUG
 log_level = logging.INFO
@@ -29,27 +29,21 @@ def user_data():
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Retrieve args')
-    parser.add_argument('--url', required=True)
-    parser.add_argument('--username', required=True)
-    parser.add_argument('--password', required=True)
-    parser.add_argument('--iter', type=int, required=True)
-    parser.add_argument('--period', type=int, default=10)
-    parser.add_argument('--action', type=str, choices=["query", "login"], default="login")
+    sso_group = parser.add_argument_group('sso')
+    sso_group.add_argument('--url', required=True)
+    sso_group.add_argument('--username', required=True)
+    sso_group.add_argument('--password', required=True)
+
+    subcommands = parser.add_subparsers(help='Subcommands', dest='command')
+    cmd_prepare = subcommands.add_parser('prepare', help='Prepare before test')
+    cmd_cleanup = subcommands.add_parser('cleanup', help='Cleanup after test')
+    cmd_test = subcommands.add_parser('test', help='Run test')
+    cmd_test.add_argument('--iter', type=int, required=True)
+    cmd_test.add_argument('--period', type=int, default=10)
+    cmd_test.add_argument('--action', type=str, choices=["query", "login"], default="login")
+
     args = parser.parse_args()
     return args
-
-
-def get_kc(api_url, username, password):
-    oid_client = kcapi.OpenID({
-        "client_id": "admin-cli",
-        "username": username,
-        "password": password,
-        "grant_type": "password",
-        "realm": "master",
-    }, api_url)
-    token = oid_client.getToken()
-    kc = kcapi.Keycloak(token, api_url)
-    return kc
 
 
 def kc_build(resource):
@@ -95,32 +89,50 @@ class LoginUserAction(Action):
         logger.debug(f"user_id={user_id}")
 
 
-
-def main():
-    data = user_data()
-    args = parse_args()
-    kc = get_kc(args.url, args.username, args.password)
+def cmd_prepare(kc):
+    # create needed group and user
     group = create_group(kc, "test-admins")
     assign_admin_roles_to_group(kc, group_name)
-    user = create_admin_user(kc, data, group_name, data['username'])
-    state1 = user.isOk()
-    state2 = group.isOk()
-    print('Status of admin group creation:', state2, ',', 'Status of user creation:', state1)
+    print('Status of admin group creation:', group.isOk())
 
-    iter = args.iter
-    count = 0
+    data = user_data()
+    user = create_admin_user(kc, data, group_name)
+    print('Status of user creation:', user.isOk())
 
-    if args.action == "query":
+
+def cmd_test(kc, action_name, iterations, period):
+    # run the test
+    if action_name == "query":
         action = QueryUserAction()
-    elif args.action == "login":
+    elif action_name == "login":
         action = LoginUserAction("testuser", "testuserp")
     else:
-        raise NotImplementedError(f"Unsupported action={args.action}")
+        raise NotImplementedError(f"Unsupported action={action_name}")
 
-    while count < iter:
+    count = 0
+    while count < iterations:
         action.run_once(count)
         count += 1
-        time.sleep(args.period)
+        time.sleep(period)
+
+
+def cmd_cleanup(kc):
+    # remove test user and group
+    remove_group(kc, "test-admins")
+    remove_user(kc, "testuser")
+
+
+def main():
+    args = parse_args()
+    kc = get_kc(args.url, args.username, args.password)
+    if args.command == 'prepare':
+        cmd_prepare(kc)
+    elif args.command == 'test':
+        cmd_test(kc, args.action, args.iter, args.period)
+    elif args.command == 'cleanup':
+        cmd_cleanup(kc)
+    else:
+        raise NotImplementedError(f"Subcommand unknown: {args.command}")
 
 
 if __name__ == "__main__":
