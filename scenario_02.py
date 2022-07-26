@@ -19,28 +19,50 @@ logger = logging.getLogger(__name__)
 
 def main():
     sso_url_user_pass = "--url $APIURL --username $SSO_API_USERNAME --password $SSO_API_PASSWORD"
-    argv_normal_load = f"./normal_load.py {sso_url_user_pass} --iter 12 --period 5 --action login".split()
-    argv_stress_load = f"./stress_test.py {sso_url_user_pass} --workers 1".split()
-    if 1:
-        argv_stress_load += "--requests 1000".split()
+    cmd_normal_load_base = f"./normal_load.py {sso_url_user_pass}"
+    cmd_stress_load_base = f"./stress_test.py {sso_url_user_pass}"
+
+    cmd_normal_load_test = " --action login"
+    cmd_stress_load_test = " --workers 2"
+    if 0:
+        cmd_normal_load_test += " --iter 12 --period 5"
+        cmd_stress_load_test += " --users 1000"
     else:
-        argv_stress_load += "--requests 60 --period 1".split()
+        cmd_normal_load_test += " --iter 3 --period 1"
+        cmd_stress_load_test += " --users 3 --period 1"
 
     scenario = Scenario(
         "sc02", stages=[
-            Stage("prepare", 0),
-            Stage("test", 1, [
+            Stage("cleanup-before", 0, [
+                Task("all", 0, [
+                    ExtCommand((cmd_normal_load_base + " cleanup").split()),
+                    ExtCommand((cmd_stress_load_base + " cleanup").split()),
+                    ]),
+                ]),
+            Stage("prepare", 1, [
+                Task("all", 0, [
+                    ExtCommand((cmd_normal_load_base + " prepare").split()),
+                    ExtCommand((cmd_stress_load_base + " prepare" + cmd_stress_load_test).split()),
+                    ]),
+                ]),
+            Stage("test", 2, [
                 Task("normal_load", 0, [
                     ExtCommand("sleep 1".split()),
-                    ExtCommand(argv_normal_load),
+                    ExtCommand((cmd_normal_load_base + " test" + cmd_normal_load_test).split()),
                     ExtCommand("sleep 1".split()),
                     ]),
                 Task("stress_load", 1, [
                     ExtCommand("sleep 1".split()),
-                    ExtCommand(argv_stress_load),
+                    ExtCommand((cmd_stress_load_base + " test" + cmd_stress_load_test).split()),
                     ExtCommand("sleep 1".split()),
                     ]),
                 ]),
+            Stage("cleanup-after", 3, [
+                Task("all", 0, [
+                    ExtCommand((cmd_normal_load_base + " cleanup").split()),
+                    ExtCommand((cmd_stress_load_base + " cleanup").split()),
+                    ]),
+                ])
             ])
     # todo - collect journalctl
     scenario.run()
