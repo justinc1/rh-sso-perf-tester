@@ -18,15 +18,15 @@ def parse_args():
                         help='Host to SSH to')
     parser.add_argument('--port', type=int, default=22,
                         help='SSH port')
-    parser.add_argument('--username', required=False, default=os.environ['USER'],
-                        help='SSH username')
-    parser.add_argument('--pkey', required=True,
-                        help='SSH private key')
-    parser.add_argument('--passphrase', required=False, default=os.environ.get("SSHPASS"),
-                        help='Passphrase for SSH key. By default environ variable SSHPASS will be used (if set).')
+    parser.add_argument('--username', required=False, default=os.environ.get('SSO_SSH_USERNAME'),
+                        help='SSH username. By default environ variable SSO_SSH_USERNAME will be used (if set).')
+    parser.add_argument('--pkey', required=False, default=os.environ.get('SSO_SSH_KEY'),
+                        help='SSH private key. By default environ variable SSO_SSH_KEY will be used (if set).')
+    parser.add_argument('--passphrase', required=False, default=os.environ.get("SSO_SSH_KEY_PASSPHRASE"),
+                        help='Passphrase for SSH key. By default environ variable SSO_SSH_KEY_PASSPHRASE will be used (if set).')
     # Parameters for executed command
-    parser.add_argument('--sudo_password', required=True,
-                        help='Password to be used for sudo.')
+    parser.add_argument('--sudo_password', required=False, default=os.environ.get('SSO_SSH_SUDO_PASSWORD'),
+                        help='Password to be used for sudo. By default environ variable SSO_SSH_SUDO_PASSWORD will be used (if set).')
     parser.add_argument('--command', required=True, nargs='+',
                          help='Command to execute (as root user - with sudo)')
     args = parser.parse_args()

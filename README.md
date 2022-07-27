@@ -18,9 +18,18 @@ export SSO_API_PASSWORD=admin_pass
 
 # Vars needed for SSH and sudo - ssh_command.py
 # passphrase for SSH private key
-export SSHPASS=pass2
-# export SSHPASS=`cat`
+export SSO_SSH_USERNAME=$USER
+export SSO_SSH_SUDO_PASSWORD=`cat`
+export SSO_SSH_KEY=$HOME/.ssh/id_rsa
+export SSO_SSH_KEY_PASSPHRASE=`cat`
 #   passphrase, enter, ctrl+d
+#
+# or test with uu3 user
+export SSO_SSH_USERNAME=uu3
+export SSO_SSH_SUDO_PASSWORD=uu3p
+export SSO_SSH_KEY=$HOME/.ssh/id_rsa2
+export SSO_SSH_KEY_PASSPHRASE=pass2
+
 
 ./stress_test.py --url $APIURL --username admin --password admin_pass cleanup
 ./stress_test.py --url $APIURL --username admin --password admin_pass prepare --workers 4 --users 10
@@ -34,6 +43,7 @@ export SSHPASS=pass2
 ./normal_load.py --url $APIURL --username admin --password admin_pass cleanup
 
 ./ssh_command.py --hostname localhost --username uu3 --pkey $HOME/.ssh/id_rsa2 --sudo_password uu3p --service systemctl restart crond
+./ssh_command.py --hostname localhost --username uu3 --command systemctl restart crond
 
 # sample scenario - does not require SSO, only echo and similar commands are run
 ./sample_scenario_01.py main
