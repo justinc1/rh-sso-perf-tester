@@ -3,13 +3,13 @@
 import kcapi
 
 
-def get_kc(api_url, username, password):
+def get_kc(api_url, username, password, realm="master"):
     oid_client = kcapi.OpenID({
         "client_id": "admin-cli",
         "username": username,
         "password": password,
         "grant_type": "password",
-        "realm": "master",
+        "realm": realm,
     }, api_url)
     token = oid_client.getToken()
     kc = kcapi.Keycloak(token, api_url)

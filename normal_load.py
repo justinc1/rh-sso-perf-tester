@@ -4,13 +4,14 @@ import argparse
 import kcapi
 import time
 import logging
-from help_methods import create_admin_user, create_group, assign_admin_roles_to_group, remove_group, remove_user, get_kc
+from help_methods import make_user, create_group, assign_admin_roles_to_group, remove_group, remove_user, get_kc
 
 log_level = logging.DEBUG
 log_level = logging.INFO
 logging.basicConfig(level=log_level)
 logger = logging.getLogger(__name__)
 
+test_realm = "stress-test"
 group_name = "test-admins"
 
 
@@ -63,8 +64,9 @@ class Action:
 
 
 class QueryUserAction(Action):
-    def __init__(self):
-        self._users = kc_build('users')
+    def __init__(self, kc):
+        # kc = get_kc(self._url, self._username, self._password)  # TODO realm needed?
+        self._users = kc.build("users", test_realm)
 
     def _run_once_body(self, count):
         specific_user = self._users.search({"username": "testuser"})
@@ -80,30 +82,33 @@ class LoginUserAction(Action):
         self._password = password
 
     def _run_once_body(self, count):
-        kc = get_kc(self._url, self._username, self._password)
-        users = kc.build("users", "master")
-        # self._users = users2
+        kc = get_kc(self._url, self._username, self._password, test_realm)
+        users = kc.build("users", test_realm)
 
-        specific_user = users.search({"username": self._username})
-        user_id = specific_user[0]['id']
-        logger.debug(f"user_id={user_id}")
+        # The test users cannot search
+        # specific_user = users.search({"username": self._username})
+        # Instead of search, just check token string is not empty.
+        # TODO try to access "/auth/realms/stress-test/account/" URL to get info about currently logged in user
+        token_str = kc.token.get_token()
+        logger.debug(f"Username={self._username} got token={token_str}")
+        assert(1138 == len(token_str))
 
 
 def cmd_prepare(kc):
     # create needed group and user
-    group = create_group(kc, "test-admins")
-    assign_admin_roles_to_group(kc, group_name)
-    print('Status of admin group creation:', group.isOk())
+    # group = create_group(kc, "test-admins")
+    # assign_admin_roles_to_group(kc, group_name)
+    # print('Status of admin group creation:', group.isOk())
 
     data = user_data()
-    user = create_admin_user(kc, data, group_name)
+    user = make_user(kc, data, group_name, test_realm)
     print('Status of user creation:', user.isOk())
 
 
 def cmd_test(kc, action_name, iterations, period):
     # run the test
     if action_name == "query":
-        action = QueryUserAction()
+        action = QueryUserAction(kc)
     elif action_name == "login":
         action = LoginUserAction("testuser", "testuserp")
     else:
@@ -118,8 +123,8 @@ def cmd_test(kc, action_name, iterations, period):
 
 def cmd_cleanup(kc):
     # remove test user and group
-    remove_group(kc, "test-admins")
-    remove_user(kc, "testuser")
+    # remove_group(kc, "test-admins")
+    remove_user(kc, "testuser", test_realm)
 
 
 def main():
