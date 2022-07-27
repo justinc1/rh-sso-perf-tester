@@ -23,23 +23,23 @@ def get_kc(api_url, username, password):
 #     return build
 
 
-def create_user(kc, data):
-    users = kc.build("users", "master")
+def create_user(kc, data, realm):
+    users = kc.build("users", realm)
     # Create user without password
     user = users.create(data)
     return user
 
 
-def remove_user(kc, username):
-    users = kc.build("users", "master")
+def remove_user(kc, username, realm):
+    users = kc.build("users", realm)
     old_users = users.search({"username": username})
     if old_users:
         print(f'Removing user with username={username}')
         users.remove(old_users[0]['id'])
 
 
-def assign_password(kc, username, password):
-    users = kc.build("users", "master")
+def assign_password(kc, username, password, realm):
+    users = kc.build("users", realm)
     user = users.search({"username": username})[0]
     user_credentials = {
         "temporary": False,
@@ -56,37 +56,37 @@ def assign_password(kc, username, password):
     return users
 
 
-def create_group(kc, group_name):
-    groups = kc.build("groups", "master")
+def create_group(kc, group_name, realm):
+    groups = kc.build("groups", realm)
     # Create group without roles
     group = groups.create({"name": group_name})
     return group
 
 
-def remove_group(kc, group_name):
-    groups = kc.build("groups", "master")
+def remove_group(kc, group_name, realm):
+    groups = kc.build("groups", realm)
     old_group = groups.findFirst({"key": "name", "value": group_name})
     if old_group:
         print(f'Removing group with name={group_name}')
         groups.remove(old_group['id'])
 
 
-def assign_admin_roles_to_group(kc, group_name):
+def assign_admin_roles_to_group(kc, group_name, realm):
     roles = "default-roles-master"
-    groups = kc.build("groups", "master")
+    groups = kc.build("groups", realm)
     group_realm_roles = groups.realmRoles({"key": "name", "value": group_name})
     admin_group = group_realm_roles.add(["admin", roles])
     return admin_group
 
 
-def assign_user_to_group(kc, username, group_name):
-    users = kc.build("users", "master")
+def assign_user_to_group(kc, username, group_name, realm):
+    users = kc.build("users", realm)
     # Assign members to existing group
     users.joinGroup({"key": "username", "value": username}, {"key": "name", "value": group_name})
 
 
-def create_admin_user(kc, data, group_name):
-    user = create_user(kc, data)
-    assign_password(kc, data["username"], "testuserp")
-    assign_user_to_group(kc, data["username"], group_name)
+def make_user(kc, data, group_name, realm):
+    user = create_user(kc, data, realm)
+    assign_password(kc, data["username"], "testuserp", realm)
+    #assign_user_to_group(kc, data["username"], group_name)
     return user
