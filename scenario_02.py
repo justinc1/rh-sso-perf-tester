@@ -6,6 +6,7 @@ import sys
 import logging
 from datetime import datetime, timezone
 from scenario import ExtCommand, Task, Stage, Scenario
+from inventory import SampleInventory
 
 LOGGING_LEVEL = logging.DEBUG
 # LOGGING_LEVEL = logging.INFO
@@ -31,6 +32,8 @@ class JournalcmdGenerator:
 
 
 def main():
+    inventory = SampleInventory()
+
     sso_url_user_pass = "--url $APIURL --username $SSO_API_USERNAME --password $SSO_API_PASSWORD"
     cmd_normal_load_base = f"./normal_load.py {sso_url_user_pass}"
     cmd_stress_load_base = f"./stress_test.py {sso_url_user_pass}"
@@ -80,13 +83,25 @@ def main():
                     ExtCommand("sleep 1".split()),
                     ]),
                 ]),
-            Stage("collect-logs", [
-                Task("localhost", [
-                    ExtCommand((cmd_ssh_base + f" --hostname localhost --command \"{jcmd.get()}\"").split()),
-                    ExtCommand((cmd_ssh_base + f" --hostname localhost --command \"{jcmd.get('crond')}\"").split()),
-                    ExtCommand((cmd_ssh_base + f" --hostname localhost --command /bin/cat /etc/issue").split()),
-                    ]),
-                ]),
+            Stage("logs", [
+                Task(host.name, [
+                    ExtCommand((cmd_ssh_base + f" --hostname {host.address} --command \"{jcmd.get()}\"").split()),
+                    ExtCommand((cmd_ssh_base + f" --hostname {host.address} --command \"{jcmd.get('crond')}\"").split()),
+                    ExtCommand((cmd_ssh_base + f" --hostname {host.address} --command /bin/cat /etc/issue").split()),
+                    ])
+                for host in inventory.hosts()
+                ] + [
+                Task(host.name, [
+                    ExtCommand((cmd_ssh_base + f" --hostname {host.address} --command echo Log from SSO app").split()),
+                    ])
+                for host in inventory.hosts("app")
+                ] + [
+                Task(host.name, [
+                    ExtCommand((cmd_ssh_base + f" --hostname {host.address} --command echo Log from SSO DB").split()),
+                    ])
+                for host in inventory.hosts("db")
+                ]
+            ),
             Stage("cleanup-after", [
                 Task("all", [
                     ExtCommand((cmd_normal_load_base + " cleanup").split()),
