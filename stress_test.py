@@ -148,6 +148,38 @@ def create_users_group(kcparams, worker_num, users_count, period):
     return result
 
 
+def users_get_token_wrapper(kcparams, worker_num, users_count, period):
+    loop = asyncio.get_event_loop()
+    result = loop.run_until_complete(users_get_token(kcparams, worker_num, users_count, period))
+    return result
+
+
+async def users_get_token(kcparams, worker_num, users_count, period):
+    timer = TicToc()
+    timer.tic()
+    tasks = []
+    loop = asyncio.get_event_loop()
+    for user_num in range(users_count):
+        data = user_generator(worker_num, user_num)
+        tasks.append(loop.run_in_executor(None, user_get_token, kcparams, data, realm))
+        if period:
+            logger.debug(f"Logging in as user: username={data['username']}")
+            time.sleep(period)
+    for tt in tasks:
+        token_str = await tt
+        # logger.debug(f"login as user - uu={uu}")
+    timer.toc(f"Worker {worker_num:02} logged-in {users_count} users in")
+    return f"TTRT login as user - {worker_num:02} {users_count}"
+
+
+def user_get_token(kcparams, user_data, realm):
+    kc = get_kc(kcparams.url, user_data["username"], "testuserp", realm)
+    token_str = kc.token.get_token()
+    logger.debug(f"Username={user_data['username']}  token={token_str}")
+    assert (100 < len(token_str))
+    return token_str
+
+
 def cmd_prepare(kcparams, workers_count, users_count, period):
     # kc = get_kc(kcparams.url, kcparams.username, kcparams.password)
     # create_group(kc, group_name)
@@ -172,7 +204,17 @@ def cmd_prepare(kcparams, workers_count, users_count, period):
 
 
 def cmd_test(kcparams, workers_count, users_count, period):
-    pass
+    future_to_worker_num = dict()
+    with ProcessPoolExecutor(max_workers=workers_count) as executor:
+        for worker_num in range(workers_count):
+            # each worker process needs its own socket to Keycloak
+            future = executor.submit(users_get_token_wrapper, kcparams, worker_num, users_count, period)
+            future_to_worker_num[future] = worker_num
+
+        for future in as_completed(future_to_worker_num):
+            worker_num = future_to_worker_num[future]
+            worker_result = future.result()
+            print(f"worker_num={worker_num:02} worker_result={worker_result}")
 
 
 def cmd_cleanup(kcparams):

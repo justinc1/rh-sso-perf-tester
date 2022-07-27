@@ -91,7 +91,7 @@ class LoginUserAction(Action):
         # TODO try to access "/auth/realms/stress-test/account/" URL to get info about currently logged in user
         token_str = kc.token.get_token()
         logger.debug(f"Username={self._username} got token={token_str}")
-        assert(1138 == len(token_str))
+        assert (100 < len(token_str))
 
 
 def cmd_prepare(kc):
