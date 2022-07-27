@@ -5,6 +5,8 @@ import time
 import sys
 import logging
 from datetime import datetime, timezone
+
+from dsv_inventory import SSOTestInventory
 from scenario import ExtCommand, Task, Stage, Scenario
 from inventory import SampleInventory
 
@@ -32,7 +34,8 @@ class JournalcmdGenerator:
 
 
 def main():
-    inventory = SampleInventory()
+    # inventory = SampleInventory()
+    inventory = SSOTestInventory()
 
     sso_url_user_pass = "--url $APIURL --username $SSO_API_USERNAME --password $SSO_API_PASSWORD"
     cmd_normal_load_base = f"./normal_load.py {sso_url_user_pass}"
@@ -84,19 +87,24 @@ def main():
                     ]),
                 ]),
             Stage("logs", [
-                Task(host.name, [
+                Task(f"any-{host.name}", [
                     ExtCommand((cmd_ssh_base + f" --hostname {host.address} --command \"{jcmd.get()}\"").split()),
                     ExtCommand((cmd_ssh_base + f" --hostname {host.address} --command \"{jcmd.get('crond')}\"").split()),
                     ExtCommand((cmd_ssh_base + f" --hostname {host.address} --command /bin/cat /etc/issue").split()),
                     ])
                 for host in inventory.hosts()
                 ] + [
-                Task(host.name, [
+                Task(f"APP-{host.name}", [
                     ExtCommand((cmd_ssh_base + f" --hostname {host.address} --command echo Log from SSO app").split()),
                     ])
                 for host in inventory.hosts("app")
                 ] + [
-                Task(host.name, [
+                Task(f"DGT-{host.name}", [
+                    ExtCommand((cmd_ssh_base + f" --hostname {host.address} --command echo Log from SSO DGT").split()),
+                    ])
+                for host in inventory.hosts("dgt")
+                ] + [
+                Task(f"DB-{host.name}", [
                     ExtCommand((cmd_ssh_base + f" --hostname {host.address} --command echo Log from SSO DB").split()),
                     ])
                 for host in inventory.hosts("db")
