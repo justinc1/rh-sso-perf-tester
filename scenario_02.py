@@ -4,7 +4,7 @@ import os
 import time
 import sys
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from scenario import ExtCommand, Task, Stage, Scenario
 
 LOGGING_LEVEL = logging.DEBUG
@@ -15,6 +15,19 @@ logging.basicConfig(
     format=LOGGING_FORMAT,
 )
 logger = logging.getLogger(__name__)
+
+
+class JournalcmdGenerator:
+    def __init__(self):
+        self.start_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    def get(self, service=None):
+        # --until is not used - .get() is called when
+        # scenario/stages/tasks are created, not when they are run.
+        cmd = f"journalctl --since '{self.start_time}'"
+        if service:
+            cmd += f" -u {service}"
+        return cmd
 
 
 def main():
@@ -35,6 +48,7 @@ def main():
     cmd_ssh_base = f"./ssh_command.py"
     cmd_ssh_restart_cron = cmd_ssh_base + " --hostname localhost --command systemctl restart crond"
 
+    jcmd = JournalcmdGenerator()
     scenario = Scenario(
         "sc02", stages=[
             Stage("cleanup-before", 0, [
@@ -66,14 +80,20 @@ def main():
                     ExtCommand("sleep 1".split()),
                     ]),
                 ]),
-            Stage("cleanup-after", 3, [
+            Stage("collect-logs", 3, [
+                Task("localhost", 0, [
+                    ExtCommand((cmd_ssh_base + f" --hostname localhost --command \"{jcmd.get()}\"").split()),
+                    ExtCommand((cmd_ssh_base + f" --hostname localhost --command \"{jcmd.get('crond')}\"").split()),
+                    ExtCommand((cmd_ssh_base + f" --hostname localhost --command /bin/cat /etc/issue").split()),
+                    ]),
+                ]),
+            Stage("cleanup-after", 4, [
                 Task("all", 0, [
                     ExtCommand((cmd_normal_load_base + " cleanup").split()),
                     ExtCommand((cmd_stress_load_base + " cleanup").split()),
                     ]),
-                ])
+                ]),
             ])
-    # todo - collect journalctl
     scenario.run()
 
 
