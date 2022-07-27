@@ -31,6 +31,10 @@ def main():
         cmd_normal_load_test += " --iter 3 --period 1"
         cmd_stress_load_test += " --users 3 --period 1"
 
+    # /ssh_command.py --hostname localhost --username uu3 --pkey $HOME/.ssh/id_rsa2 --sudo_password uu3p --command systemctl status crond
+    cmd_ssh_base = f"./ssh_command.py"
+    cmd_ssh_restart_cron = cmd_ssh_base + " --hostname localhost --command systemctl restart crond"
+
     scenario = Scenario(
         "sc02", stages=[
             Stage("cleanup-before", 0, [
@@ -54,6 +58,11 @@ def main():
                 Task("stress_load", 1, [
                     ExtCommand("sleep 1".split()),
                     ExtCommand((cmd_stress_load_base + " test" + cmd_stress_load_test).split()),
+                    ExtCommand("sleep 1".split()),
+                    ]),
+                Task("restart_crond", 2, [
+                    ExtCommand("sleep 1".split()),
+                    ExtCommand(cmd_ssh_restart_cron.split()),
                     ExtCommand("sleep 1".split()),
                     ]),
                 ]),
