@@ -25,12 +25,10 @@ def parse_args():
     parser.add_argument('--passphrase', required=False, default=os.environ.get("SSHPASS"),
                         help='Passphrase for SSH key. By default environ variable SSHPASS will be used (if set).')
     # Parameters for executed command
-    parser.add_argument('--service', required=True,
-                        help='Systemd service to control')
-    parser.add_argument('--action', required=True, choices=['start', 'stop', 'restart', 'status'],
-                        help='Action to apply to systemd service')
     parser.add_argument('--sudo_password', required=True,
                         help='Password to be used for sudo.')
+    parser.add_argument('--command', required=True, nargs='+',
+                         help='Command to execute (as root user - with sudo)')
     args = parser.parse_args()
     return args
 
@@ -50,10 +48,11 @@ def main():
     ssh_param_description = f"hostname={args.hostname} port={args.port} username={args.username} pkey={args.pkey}"
     print(f"SSH connection: {ssh_param_description}")
 
-    systemctl_cmd = ['systemctl', args.action, args.service]
+#     systemctl_cmd = ['systemctl', args.action, args.service]
+    command = args.command
     sudo_cmd = ['sudo', '-S']
     # execute = ' '.join(sudo_cmd + ['whoami'])  # a safe test
-    execute = ' '.join(sudo_cmd + systemctl_cmd)
+    execute = ' '.join(sudo_cmd + command)
     print(f"Command: {execute}")
 
     # https://stackoverflow.com/questions/48554497/how-do-i-write-to-stdin-returned-from-exec-command-in-paramiko
