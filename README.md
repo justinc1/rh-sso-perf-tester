@@ -7,9 +7,20 @@ python3.10 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
+# Common vars
 export TZ=UTC
+
+# Vars needed for SSO testing (stress_test.py, normal_load.py)
 export APIURL=https://jc-sso-justin-cinkelj-dev.apps.sandbox.x8i5.p1.openshiftapps.com
 export APIURL=https://sso-minh-tran-duc-dev.apps.sandbox-m2.ll9k.p1.openshiftapps.com
+export SSO_API_USERNAME=admin
+export SSO_API_PASSWORD=admin_pass
+
+# Vars needed for SSH and sudo - ssh_command.py
+# passphrase for SSH private key
+export SSHPASS=pass2
+# export SSHPASS=`cat`
+#   passphrase, enter, ctrl+d
 
 ./stress_test.py --url $APIURL --username admin --password admin_pass cleanup
 ./stress_test.py --url $APIURL --username admin --password admin_pass prepare --workers 4 --users 10
@@ -22,17 +33,12 @@ export APIURL=https://sso-minh-tran-duc-dev.apps.sandbox-m2.ll9k.p1.openshiftapp
 ./normal_load.py --url $APIURL --username admin --password admin_pass test --iter 3 --period 10 --action login
 ./normal_load.py --url $APIURL --username admin --password admin_pass cleanup
 
-export SSHPASS=pass2
-# export SSHPASS=`cat`
-#   passphrase, enter, ctrl+d
-./sys_command.py --hostname localhost --username uu3 --pkey $HOME/.ssh/id_rsa2 --service crond --action restart --sudo_password uu3p
+./ssh_command.py --hostname localhost --username uu3 --pkey $HOME/.ssh/id_rsa2 --sudo_password uu3p --service systemctl restart crond
 
 # sample scenario - does not require SSO, only echo and similar commands are run
 ./sample_scenario_01.py main
 
 # real scenario with normal and stress load for SSO server
-export SSO_API_USERNAME=admin
-export SSO_API_PASSWORD=admin_pass
 ./scenario_02.py
 ```
 
