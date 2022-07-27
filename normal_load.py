@@ -8,7 +8,11 @@ from help_methods import make_user, create_group, assign_admin_roles_to_group, r
 
 log_level = logging.DEBUG
 log_level = logging.INFO
-logging.basicConfig(level=log_level)
+logging.basicConfig(
+    level=log_level,
+    format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+)
 logger = logging.getLogger(__name__)
 
 test_realm = "stress-test"

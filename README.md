@@ -7,6 +7,7 @@ python3.10 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
+export TZ=UTC
 export APIURL=https://jc-sso-justin-cinkelj-dev.apps.sandbox.x8i5.p1.openshiftapps.com
 export APIURL=https://sso-minh-tran-duc-dev.apps.sandbox-m2.ll9k.p1.openshiftapps.com
 
