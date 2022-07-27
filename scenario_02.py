@@ -51,44 +51,44 @@ def main():
     jcmd = JournalcmdGenerator()
     scenario = Scenario(
         "sc02", stages=[
-            Stage("cleanup-before", 0, [
-                Task("all", 0, [
+            Stage("cleanup-before", [
+                Task("all", [
                     ExtCommand((cmd_normal_load_base + " cleanup").split()),
                     ExtCommand((cmd_stress_load_base + " cleanup").split()),
                     ]),
                 ]),
-            Stage("prepare", 1, [
-                Task("all", 0, [
+            Stage("prepare", [
+                Task("all", [
                     ExtCommand((cmd_normal_load_base + " prepare").split()),
                     ExtCommand((cmd_stress_load_base + " prepare" + cmd_stress_load_test).split()),
                     ]),
                 ]),
-            Stage("test", 2, [
-                Task("normal_load", 0, [
+            Stage("test", [
+                Task("normal_load", [
                     ExtCommand("sleep 1".split()),
                     ExtCommand((cmd_normal_load_base + " test" + cmd_normal_load_test).split()),
                     ExtCommand("sleep 1".split()),
                     ]),
-                Task("stress_load", 1, [
+                Task("stress_load", [
                     ExtCommand("sleep 1".split()),
                     ExtCommand((cmd_stress_load_base + " test" + cmd_stress_load_test).split()),
                     ExtCommand("sleep 1".split()),
                     ]),
-                Task("restart_crond", 2, [
+                Task("restart_crond", [
                     ExtCommand("sleep 1".split()),
                     ExtCommand(cmd_ssh_restart_cron.split()),
                     ExtCommand("sleep 1".split()),
                     ]),
                 ]),
-            Stage("collect-logs", 3, [
-                Task("localhost", 0, [
+            Stage("collect-logs", [
+                Task("localhost", [
                     ExtCommand((cmd_ssh_base + f" --hostname localhost --command \"{jcmd.get()}\"").split()),
                     ExtCommand((cmd_ssh_base + f" --hostname localhost --command \"{jcmd.get('crond')}\"").split()),
                     ExtCommand((cmd_ssh_base + f" --hostname localhost --command /bin/cat /etc/issue").split()),
                     ]),
                 ]),
-            Stage("cleanup-after", 4, [
-                Task("all", 0, [
+            Stage("cleanup-after", [
+                Task("all", [
                     ExtCommand((cmd_normal_load_base + " cleanup").split()),
                     ExtCommand((cmd_stress_load_base + " cleanup").split()),
                     ]),

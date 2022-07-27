@@ -47,10 +47,13 @@ class ExtCommand:
 
 
 class Task:
-    def __init__(self, name: str, task_id: int, commands=[]):
+    def __init__(self, name: str, commands=[]):
         self.name = name
-        self.id = task_id
+        self.id = -1
         self._commands = commands
+
+    def set_id(self, task_id: int):
+        self.id = task_id
 
     async def run(self, logfile_path):
         with open(logfile_path, "w") as logfile:
@@ -62,10 +65,17 @@ class Task:
 
 
 class Stage:
-    def __init__(self, name: str, stage_id: int, tasks=[]):
+    def __init__(self, name: str, tasks=[]):
         self.name = name
-        self.id = stage_id
+        self.id = -1
         self._tasks = tasks
+
+    def set_id(self, stage_id: int):
+        self.id = stage_id
+        taks_id = 0
+        for task in self._tasks:
+            task.set_id(taks_id)
+            taks_id += 1
 
     async def run(self, logdir):
         # TODO - logfile per Task.
@@ -83,7 +93,14 @@ class Scenario:
         self.name = name
         self._stages = stages
 
+    def set_id(self):
+        stage_id = 0
+        for stage in self._stages:
+            stage.set_id(stage_id)
+            stage_id += 1
+
     def run(self):
+        self.set_id()
         main_logdir = "logs"
         date_str = datetime.strftime(datetime.utcnow(), "%Y%m%d-%H%M%S")
         logdir = os.path.join(main_logdir, f"{sanitize_path(self.name)}-{date_str}")

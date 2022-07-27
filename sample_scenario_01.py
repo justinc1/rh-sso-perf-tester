@@ -40,7 +40,7 @@ def sleep_write(argv):
 
 class SampleTask(Task):
     def __init__(self, name, task_id, stage_id, delay1, delay2):
-        super().__init__(name, task_id)
+        super().__init__(name)
         self._commands = [
             ExtCommand("/bin/echo asdf AA=${AA:-em-AA-not-defined} BB=${BB:-em-BB-not-defined}".split()),
             ExtCommand(
@@ -52,7 +52,7 @@ class SampleTask(Task):
 
 class SampleStage(Stage):
     def __init__(self, name, stage_id):
-        super().__init__(name, stage_id)
+        super().__init__(name)
         self._tasks = [
             SampleTask("task0", 0, stage_id, 0.1, 0.2),
             SampleTask("task1", 1, stage_id, 0.2, 0.2),
